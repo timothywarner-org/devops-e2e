@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh auth:*)",
+      "Bash(gh repo view:*)",
+      "Bash(az account show:*)",
+      "Bash(az identity show:*)",
+      "Bash(chmod:*)",
+      "Bash(az deployment group validate:*)",
+      "Bash(echo \"Deploying as: $DEPLOYMENT_NAME\")",
+      "Bash(az deployment group create:*)",
+      "Bash(echo \"Deploying: $DEPLOYMENT_NAME\")",
+      "Bash(cat:*)",
+      "Bash(npm ci:*)",
+      "Bash(npm install)",
+      "Bash(npm run lint)",
+      "Bash(npm run lint:*)",
+      "Bash(npm test)",
+      "Bash(docker build:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

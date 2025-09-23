@@ -1,0 +1,25 @@
+version: '3.8'
+
+# Development-specific configuration
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./src:/app/src
+      - ./views:/app/views
+      - ./public:/app/public
+      - ./tests:/app/tests
+      - ./package.json:/app/package.json
+      - ./package-lock.json:/app/package-lock.json
+      - node_modules:/app/node_modules
+    environment:
+      - NODE_ENV=development
+      - DEBUG=app:*
+    command: npm run dev
+
+volumes:
+  node_modules:

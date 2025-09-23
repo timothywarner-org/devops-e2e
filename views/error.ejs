@@ -1,0 +1,16 @@
+<% var body = `
+<div class="text-center">
+    <h1 class="display-1">${error.status || '500'}</h1>
+    <h2>${title}</h2>
+    <p class="lead">${message}</p>
+    <a href="/" class="btn btn-primary">Go Home</a>
+</div>
+
+${process.env.NODE_ENV === 'development' && error.stack ? `
+<div class="mt-5">
+    <h3>Stack Trace (Development Only)</h3>
+    <pre class="bg-light p-3">${error.stack}</pre>
+</div>
+` : ''}
+`; %>
+<%- include('layout', { title: title, body: body }) %>

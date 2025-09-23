@@ -1,0 +1,93 @@
+<% var body = `
+<h1>Contact & Resources</h1>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <h2>Useful Resources</h2>
+        <div class="list-group">
+            ${resources.map(resource => `
+            <a href="${resource.url}" class="list-group-item list-group-item-action" target="_blank">
+                ${resource.name}
+            </a>
+            `).join('')}
+        </div>
+    </div>
+    <div class="col-md-6">
+        <h2>Submit Feedback</h2>
+        <form id="feedbackForm">
+            <div class="mb-3">
+                <label for="name" class="form-label">Name</label>
+                <input type="text" class="form-control" id="name" name="name">
+            </div>
+            <div class="mb-3">
+                <label for="email" class="form-label">Email</label>
+                <input type="email" class="form-control" id="email" name="email">
+            </div>
+            <div class="mb-3">
+                <label for="rating" class="form-label">Rating</label>
+                <select class="form-control" id="rating" name="rating">
+                    <option value="5">Excellent</option>
+                    <option value="4">Good</option>
+                    <option value="3">Average</option>
+                    <option value="2">Below Average</option>
+                    <option value="1">Poor</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label for="message" class="form-label">Message</label>
+                <textarea class="form-control" id="message" name="message" rows="3" required></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Submit Feedback</button>
+        </form>
+        <div id="feedbackResult" class="mt-3"></div>
+    </div>
+</div>
+
+<div class="row mt-5">
+    <div class="col-md-12">
+        <h2>Additional Learning Resources</h2>
+        <div class="card">
+            <div class="card-body">
+                <ul>
+                    <li><a href="https://docs.microsoft.com/azure/devops" target="_blank">Azure DevOps Documentation</a></li>
+                    <li><a href="https://kubernetes.io/docs/" target="_blank">Kubernetes Documentation</a></li>
+                    <li><a href="https://docs.docker.com/" target="_blank">Docker Documentation</a></li>
+                    <li><a href="https://docs.github.com/actions" target="_blank">GitHub Actions Documentation</a></li>
+                    <li><a href="https://jestjs.io/docs/getting-started" target="_blank">Jest Testing Framework</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('feedbackForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+
+    try {
+        const response = await fetch('/api/feedback', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+        });
+
+        const result = await response.json();
+        const resultDiv = document.getElementById('feedbackResult');
+
+        if (response.ok) {
+            resultDiv.innerHTML = '<div class="alert alert-success">Thank you for your feedback!</div>';
+            e.target.reset();
+        } else {
+            resultDiv.innerHTML = '<div class="alert alert-danger">Error submitting feedback. Please try again.</div>';
+        }
+    } catch (error) {
+        document.getElementById('feedbackResult').innerHTML = '<div class="alert alert-danger">Network error. Please try again.</div>';
+    }
+});
+</script>
+`; %>
+<%- include('layout', { title: title, body: body }) %>

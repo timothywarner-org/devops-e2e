@@ -1,0 +1,52 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environment": {
+      "value": "dev"
+    },
+    "location": {
+      "value": "eastus2"
+    },
+    "workloadName": {
+      "value": "devopse2e"
+    },
+    "tags": {
+      "value": {
+        "Environment": "dev",
+        "Workload": "DevOps-E2E-Teaching",
+        "ManagedBy": "Bicep-IaC",
+        "CostCenter": "Education",
+        "Owner": "tim@techtrainertim.com",
+        "Repository": "https://github.com/timothywarner-org/devops-e2e"
+      }
+    },
+    "managedIdentityClientId": {
+      "value": "7534bc0a-7e2f-4ec9-9216-aaa159cf187c"
+    },
+    "managedIdentityPrincipalId": {
+      "value": "b4600ff9-e02b-41b3-b8b8-bb0e4ada9f8a"
+    },
+    "enableMonitoring": {
+      "value": true
+    },
+    "enableDiagnostics": {
+      "value": true
+    },
+    "aksNodeCount": {
+      "value": 2
+    },
+    "aksNodeVmSize": {
+      "value": "Standard_D2s_v3"
+    },
+    "enableAksAutoScaling": {
+      "value": true
+    },
+    "aksMinNodeCount": {
+      "value": 1
+    },
+    "aksMaxNodeCount": {
+      "value": 3
+    }
+  }
+}

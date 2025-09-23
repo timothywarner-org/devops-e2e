@@ -1,0 +1,149 @@
+name: Deploy Azure Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+  push:
+    branches:
+      - main
+    paths:
+      - 'infrastructure/bicep/**'
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  AZURE_RESOURCE_GROUP: 'authortalk-rg'
+  AZURE_REGION: 'eastus2'
+  MANAGED_IDENTITY_CLIENT_ID: '7534bc0a-7e2f-4ec9-9216-aaa159cf187c'
+
+jobs:
+  validate:
+    name: Validate Bicep Templates
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Azure Login with Managed Identity
+      uses: azure/login@v1
+      with:
+        client-id: ${{ env.MANAGED_IDENTITY_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+    - name: Validate Bicep template
+      run: |
+        az deployment group validate \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --template-file infrastructure/bicep/main.bicep \
+          --parameters infrastructure/bicep/main.parameters.json
+
+    - name: Run What-If analysis
+      run: |
+        az deployment group what-if \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --template-file infrastructure/bicep/main.bicep \
+          --parameters infrastructure/bicep/main.parameters.json
+
+  deploy:
+    name: Deploy Infrastructure
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+
+    outputs:
+      acrName: ${{ steps.deploy.outputs.acrName }}
+      acrLoginServer: ${{ steps.deploy.outputs.acrLoginServer }}
+      aksClusterName: ${{ steps.deploy.outputs.aksClusterName }}
+      keyVaultName: ${{ steps.deploy.outputs.keyVaultName }}
+      appInsightsKey: ${{ steps.deploy.outputs.appInsightsKey }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Azure Login with Managed Identity
+      uses: azure/login@v1
+      with:
+        client-id: ${{ env.MANAGED_IDENTITY_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+    - name: Deploy Bicep template
+      id: deploy
+      run: |
+        DEPLOYMENT_NAME="devops-e2e-$(date +%Y%m%d-%H%M%S)"
+
+        az deployment group create \
+          --name $DEPLOYMENT_NAME \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --template-file infrastructure/bicep/main.bicep \
+          --parameters infrastructure/bicep/main.parameters.json \
+          --verbose
+
+        # Get outputs
+        OUTPUTS=$(az deployment group show \
+          --name $DEPLOYMENT_NAME \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --query properties.outputs -o json)
+
+        echo "acrName=$(echo $OUTPUTS | jq -r '.acrName.value')" >> $GITHUB_OUTPUT
+        echo "acrLoginServer=$(echo $OUTPUTS | jq -r '.acrLoginServer.value')" >> $GITHUB_OUTPUT
+        echo "aksClusterName=$(echo $OUTPUTS | jq -r '.aksClusterName.value')" >> $GITHUB_OUTPUT
+        echo "keyVaultName=$(echo $OUTPUTS | jq -r '.keyVaultName.value')" >> $GITHUB_OUTPUT
+        echo "appInsightsKey=$(echo $OUTPUTS | jq -r '.appInsightsInstrumentationKey.value')" >> $GITHUB_OUTPUT
+
+    - name: Configure AKS credentials
+      run: |
+        az aks get-credentials \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --name ${{ steps.deploy.outputs.aksClusterName }} \
+          --overwrite-existing
+
+    - name: Create Kubernetes namespace
+      run: |
+        kubectl create namespace devops-e2e --dry-run=client -o yaml | kubectl apply -f -
+
+    - name: Store ACR credentials in Key Vault
+      run: |
+        ACR_USERNAME=$(az acr credential show \
+          --name ${{ steps.deploy.outputs.acrName }} \
+          --query username -o tsv)
+
+        ACR_PASSWORD=$(az acr credential show \
+          --name ${{ steps.deploy.outputs.acrName }} \
+          --query passwords[0].value -o tsv)
+
+        az keyvault secret set \
+          --vault-name ${{ steps.deploy.outputs.keyVaultName }} \
+          --name "acr-username" \
+          --value "$ACR_USERNAME"
+
+        az keyvault secret set \
+          --vault-name ${{ steps.deploy.outputs.keyVaultName }} \
+          --name "acr-password" \
+          --value "$ACR_PASSWORD"
+
+    - name: Deployment summary
+      run: |
+        echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **Resource Group:** ${{ env.AZURE_RESOURCE_GROUP }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **ACR Name:** ${{ steps.deploy.outputs.acrName }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **ACR Login Server:** ${{ steps.deploy.outputs.acrLoginServer }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **AKS Cluster:** ${{ steps.deploy.outputs.aksClusterName }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Key Vault:** ${{ steps.deploy.outputs.keyVaultName }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,62 @@
+<% var body = `
+<h1>About DevOps E2E</h1>
+<p class="lead">${description}</p>
+
+<div class="row mt-5">
+    <div class="col-md-12">
+        <h2>Technology Stack</h2>
+        ${Object.entries(technologies).map(([category, techs]) => `
+        <div class="card mb-3">
+            <div class="card-header">
+                <h4>${category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    ${techs.map(tech => `
+                    <div class="col-md-3 mb-2">
+                        <span class="badge bg-primary">${tech}</span>
+                    </div>
+                    `).join('')}
+                </div>
+            </div>
+        </div>
+        `).join('')}
+    </div>
+</div>
+
+<div class="row mt-5">
+    <div class="col-md-12">
+        <h2>Architecture Overview</h2>
+        <div class="card">
+            <div class="card-body">
+                <h5>Development Workflow</h5>
+                <ol>
+                    <li>Code changes pushed to GitHub repository</li>
+                    <li>GitHub Actions workflow triggered automatically</li>
+                    <li>Code quality checks with ESLint</li>
+                    <li>Unit and integration tests with Jest</li>
+                    <li>Security scanning with CodeQL</li>
+                    <li>Docker image built and pushed to Azure Container Registry</li>
+                    <li>Deployment to Azure Kubernetes Service</li>
+                    <li>Health checks and monitoring activated</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-5">
+    <div class="col-md-12">
+        <h2>Learning Objectives</h2>
+        <ul class="list-group">
+            <li class="list-group-item">Understanding CI/CD pipeline architecture</li>
+            <li class="list-group-item">Implementing automated testing strategies</li>
+            <li class="list-group-item">Container orchestration with Kubernetes</li>
+            <li class="list-group-item">Security best practices in DevOps</li>
+            <li class="list-group-item">Infrastructure as Code principles</li>
+            <li class="list-group-item">Monitoring and observability</li>
+        </ul>
+    </div>
+</div>
+`; %>
+<%- include('layout', { title: title, body: body }) %>
