@@ -1,0 +1,111 @@
+# DevOps E2E - Dependabot Configuration
+# Automatically keep dependencies up to date and secure
+
+version: 2
+
+updates:
+  # Enable version updates for npm (Node.js dependencies)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    
+    # Group minor and patch updates together to reduce PR noise
+    groups:
+      patch-updates:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+      minor-updates:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+    
+    # Customize commit messages
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps-dev"
+      include: "scope"
+    
+    # Add reviewers and assignees
+    reviewers:
+      - "timothywarner-org"
+    assignees:
+      - "timothywarner-org"
+    
+    # Labels to add to pull requests
+    labels:
+      - "dependencies"
+      - "automated"
+      - "security"
+    
+    # Allow automatic merging of patch updates for trusted packages
+    allow:
+      - dependency-type: "direct"
+        update-type: "version-update:semver-patch"
+      - dependency-type: "indirect"
+        update-type: "version-update:semver-patch"
+    
+    # Ignore specific dependencies or versions
+    ignore:
+      # Ignore major version updates for ESLint (due to breaking changes)
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      
+      # Ignore specific vulnerable versions if they can't be updated immediately
+      # - dependency-name: "example-package"
+      #   versions: ["1.0.0", "1.0.1"]
+
+  # Enable version updates for GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    
+    reviewers:
+      - "timothywarner-org"
+    assignees:
+      - "timothywarner-org"
+    
+    labels:
+      - "github-actions"
+      - "ci-cd"
+      - "automated"
+
+  # Enable version updates for Docker
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    
+    commit-message:
+      prefix: "docker"
+      include: "scope"
+    
+    reviewers:
+      - "timothywarner-org"
+    assignees:
+      - "timothywarner-org"
+    
+    labels:
+      - "docker"
+      - "infrastructure"
+      - "automated"

@@ -1,0 +1,37 @@
+# DevOps E2E - CodeQL Configuration
+# Custom configuration for GitHub's semantic code analysis
+
+name: "DevOps E2E CodeQL Config"
+
+# Disable default queries and use custom ones
+disable-default-queries: false
+
+# Specify custom query suites and individual queries
+queries:
+  - name: security-extended
+    uses: security-extended
+  - name: security-and-quality
+    uses: security-and-quality
+
+# Specify paths to include in the analysis
+paths:
+  - src/
+  - tests/
+  - public/js/
+
+# Specify paths to exclude from the analysis
+paths-ignore:
+  - node_modules/
+  - coverage/
+  - docs/
+  - "**/*.test.js"     # Exclude test files from security analysis
+  - "**/*.spec.js"     # Exclude spec files from security analysis
+  - public/css/        # Exclude CSS files
+  - public/images/     # Exclude image files
+
+# Pack configurations for downloading query packs
+packs:
+  javascript:
+    - "codeql/javascript-queries:AlertSuppression.ql"
+    - "codeql/javascript-queries:Security"
+    - "codeql/javascript-queries:Maintainability"

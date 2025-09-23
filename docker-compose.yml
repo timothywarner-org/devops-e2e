@@ -1,0 +1,100 @@
+# DevOps E2E - Docker Compose Configuration
+# For local development and testing
+
+version: '3.8'
+
+services:
+  # Main application service
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: devops-e2e-app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - ALLOWED_ORIGINS=http://localhost:3000
+    volumes:
+      # Mount source code for hot reloading in development
+      - ./src:/app/src:ro
+      - ./public:/app/public:ro
+      - ./tests:/app/tests:ro
+      # Exclude node_modules from mount
+      - /app/node_modules
+    networks:
+      - devops-e2e-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    labels:
+      - "com.example.description=DevOps E2E Teaching Application"
+      - "com.example.environment=development"
+
+  # Nginx reverse proxy (optional, for production-like setup)
+  nginx:
+    image: nginx:alpine
+    container_name: devops-e2e-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deployment/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./deployment/nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - app
+    networks:
+      - devops-e2e-network
+    restart: unless-stopped
+    profiles:
+      - production  # Only start with --profile production
+
+  # Redis cache (optional, for advanced features)
+  redis:
+    image: redis:alpine
+    container_name: devops-e2e-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - devops-e2e-network
+    restart: unless-stopped
+    profiles:
+      - cache  # Only start with --profile cache
+
+  # PostgreSQL database (optional, for future database integration)
+  postgres:
+    image: postgres:15-alpine
+    container_name: devops-e2e-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=devops_e2e
+      - POSTGRES_USER=devops_user
+      - POSTGRES_PASSWORD=devops_password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./deployment/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - devops-e2e-network
+    restart: unless-stopped
+    profiles:
+      - database  # Only start with --profile database
+
+networks:
+  devops-e2e-network:
+    driver: bridge
+    name: devops-e2e-network
+
+volumes:
+  redis-data:
+    name: devops-e2e-redis-data
+  postgres-data:
+    name: devops-e2e-postgres-data

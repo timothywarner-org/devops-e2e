@@ -1,0 +1,77 @@
+# DevOps E2E - CodeQL Security Analysis
+# GitHub's semantic code analysis engine for finding security vulnerabilities
+
+name: "CodeQL Security Scan"
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run weekly security scans on Sundays at 3 AM UTC
+    - cron: '0 3 * * 0'
+
+jobs:
+  analyze:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'javascript' ]
+        # CodeQL supports: cpp, csharp, go, java, javascript, python, ruby
+        # Learn more: https://docs.github.com/en/free-pro-team@latest/github/finding-security-vulnerabilities-and-errors-in-your-code/configuring-code-scanning
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # Initialize CodeQL tools for scanning
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+        # If you want to specify custom queries, you can do so here
+        # queries: security-extended,security-and-quality
+        
+        # Override the default CodeQL config if needed
+        config-file: ./.github/codeql/codeql-config.yml
+
+    # Install Node.js dependencies for better analysis
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18.x'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    # Autobuild attempts to build any compiled languages (not needed for JavaScript)
+    # For JavaScript, this step analyzes the code without building
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v3
+
+    # Manual build steps can be added here if autobuild doesn't work
+    # - name: Manual build
+    #   run: |
+    #     make bootstrap
+    #     make release
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:${{matrix.language}}"
+        
+        # Upload results to GitHub Security tab
+        upload: true
+        
+        # Optionally fail the workflow if vulnerabilities are found
+        # fail-on: "error"

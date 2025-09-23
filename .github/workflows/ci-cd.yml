@@ -1,0 +1,263 @@
+# DevOps E2E - Continuous Integration and Deployment
+# This workflow demonstrates modern CI/CD practices for Node.js applications
+
+name: CI/CD Pipeline
+
+# Trigger the workflow on push and pull requests
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [ published ]
+
+# Environment variables for the entire workflow
+env:
+  NODE_VERSION: '18.x'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+# Define reusable job defaults
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # Job 1: Code Quality and Testing
+  test:
+    name: Test and Quality Checks
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run linting
+      run: npm run lint
+      
+    - name: Run unit tests
+      run: npm run test:coverage
+      
+    - name: Upload coverage reports
+      if: matrix.node-version == '18.x'
+      uses: codecov/codecov-action@v3
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        file: ./coverage/lcov.info
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: true
+        
+    - name: Archive test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results-${{ matrix.node-version }}
+        path: |
+          coverage/
+          *.log
+
+  # Job 2: Security Scanning
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run npm audit
+      run: npm audit --audit-level high
+      continue-on-error: true
+      
+    - name: Run CodeQL Analysis
+      uses: github/codeql-action/init@v3
+      with:
+        languages: javascript
+        
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+
+  # Job 3: Build Docker Image
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    if: github.event_name != 'pull_request'
+    
+    permissions:
+      contents: read
+      packages: write
+      
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix=sha-{{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+        labels: |
+          org.opencontainers.image.title=DevOps E2E
+          org.opencontainers.image.description=Teaching platform for DevOps practices
+          org.opencontainers.image.vendor=Timothy Warner Organization
+          
+    - name: Build and push Docker image
+      id: build
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        target: production
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        
+    - name: Sign the container image
+      if: github.event_name != 'pull_request'
+      uses: sigstore/cosign-installer@v3
+      
+    - name: Sign container image with cosign
+      if: github.event_name != 'pull_request'
+      run: |
+        echo "${{ steps.meta.outputs.tags }}" | xargs -I {} cosign sign --yes {}@${{ steps.build.outputs.digest }}
+
+  # Job 4: Deploy to Development (Azure AKS)
+  deploy-dev:
+    name: Deploy to Development
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/develop'
+    environment: 
+      name: development
+      url: https://devops-e2e-dev.example.com
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS_DEV }}
+        
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'latest'
+        
+    - name: Get AKS credentials
+      run: |
+        az aks get-credentials --resource-group ${{ secrets.AKS_RESOURCE_GROUP_DEV }} --name ${{ secrets.AKS_CLUSTER_NAME_DEV }}
+        
+    - name: Replace image tag in manifests
+      run: |
+        sed -i 's|IMAGE_TAG|${{ needs.build.outputs.image-tag }}|g' deployment/azure/k8s-manifests/dev/
+        
+    - name: Deploy to AKS
+      run: |
+        kubectl apply -f deployment/azure/k8s-manifests/dev/
+        kubectl rollout status deployment/devops-e2e-app -n devops-e2e-dev
+        
+    - name: Run smoke tests
+      run: |
+        kubectl port-forward service/devops-e2e-service 8080:80 -n devops-e2e-dev &
+        sleep 10
+        curl -f http://localhost:8080/health || exit 1
+
+  # Job 5: Deploy to Production (Azure AKS)
+  deploy-prod:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    environment: 
+      name: production
+      url: https://devops-e2e.example.com
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS_PROD }}
+        
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'latest'
+        
+    - name: Get AKS credentials
+      run: |
+        az aks get-credentials --resource-group ${{ secrets.AKS_RESOURCE_GROUP_PROD }} --name ${{ secrets.AKS_CLUSTER_NAME_PROD }}
+        
+    - name: Replace image tag in manifests
+      run: |
+        sed -i 's|IMAGE_TAG|${{ needs.build.outputs.image-tag }}|g' deployment/azure/k8s-manifests/prod/
+        
+    - name: Deploy to AKS
+      run: |
+        kubectl apply -f deployment/azure/k8s-manifests/prod/
+        kubectl rollout status deployment/devops-e2e-app -n devops-e2e-prod
+        
+    - name: Run smoke tests
+      run: |
+        kubectl port-forward service/devops-e2e-service 8080:80 -n devops-e2e-prod &
+        sleep 10
+        curl -f http://localhost:8080/health || exit 1
+        
+    - name: Notify deployment success
+      if: success()
+      run: |
+        echo "🚀 Production deployment successful!"
+        echo "Application URL: https://devops-e2e.example.com"

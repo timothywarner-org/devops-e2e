@@ -1,0 +1,74 @@
+# DevOps E2E - Docker Ignore File
+# Exclude files and directories that shouldn't be in the Docker image
+
+# Dependencies (will be installed in container)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Coverage and test artifacts
+coverage/
+.nyc_output/
+*.lcov
+
+# Environment files (should be passed as environment variables)
+.env
+.env.*
+!.env.example
+
+# Git files
+.git/
+.gitignore
+.gitattributes
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Documentation (not needed in production image)
+docs/
+*.md
+!README.md
+
+# CI/CD files (not needed in production image)
+.github/
+.gitlab-ci.yml
+azure-pipelines.yml
+Jenkinsfile
+
+# Development only files
+docker-compose.yml
+docker-compose.*.yml
+
+# Logs
+logs/
+*.log
+
+# Build artifacts that will be generated
+dist/
+build/
+
+# Testing files (for production builds)
+tests/
+*.test.js
+*.spec.js
+jest.config.js
