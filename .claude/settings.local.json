@@ -17,7 +17,18 @@
       "Bash(npm run lint:*)",
       "Bash(npm test)",
       "Bash(docker build:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run:*)",
+      "Bash(gh secret:*)",
+      "Bash(az aks list:*)",
+      "Bash(while true)",
+      "Bash(do clear)",
+      "Bash(break)",
+      "Bash(done)",
+      "Bash(git commit:*)",
+      "Bash(gh repo edit:*)"
     ],
     "deny": [],
     "ask": []
