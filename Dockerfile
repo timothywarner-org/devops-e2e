@@ -1,5 +1,5 @@
 # Multi-stage build for production-optimized image
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
@@ -13,7 +13,7 @@ RUN npm ci --only=production
 COPY . .
 
 # Production stage
-FROM node:20-alpine
+FROM node:24-alpine
 
 # Install dumb-init to handle signals properly
 RUN apk add --no-cache dumb-init
